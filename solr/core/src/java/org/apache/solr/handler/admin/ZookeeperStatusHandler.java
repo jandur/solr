@@ -27,10 +27,15 @@ import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.solr.client.solrj.impl.Http2SolrClient;
 import org.apache.solr.common.SolrException;
 import org.apache.solr.common.cloud.SolrZkClient;
 import org.apache.solr.common.cloud.ZkDynamicConfig;
@@ -41,6 +46,8 @@ import org.apache.solr.request.SolrQueryRequest;
 import org.apache.solr.response.SolrQueryResponse;
 import org.apache.solr.security.AuthorizationContext;
 import org.apache.zookeeper.KeeperException;
+import org.eclipse.jetty.client.HttpClient;
+import org.eclipse.jetty.client.api.ContentResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -174,7 +181,7 @@ public class ZookeeperStatusHandler extends RequestHandlerBase {
           stat.remove("errors");
         }
         details.add(stat);
-        String state = String.valueOf(stat.get("zk_server_state"));
+        String state = String.valueOf(stat.get("server_state"));
         if ("follower".equals(state) || "observer".equals(state)) {
           followers++;
         } else if ("leader".equals(state)) {
@@ -275,28 +282,52 @@ public class ZookeeperStatusHandler extends RequestHandlerBase {
     Map<String, Object> obj = new HashMap<>();
     List<String> errors = new ArrayList<>();
     obj.put("host", zkHostPort);
-    List<String> lines = getZkRawResponse(zkHostPort, "ruok");
-    validateZkRawResponse(lines, zkHostPort, "ruok");
-    boolean ok = "imok".equals(lines.get(0));
-    obj.put("ok", ok);
-    lines = getZkRawResponse(zkHostPort, "mntr");
-    validateZkRawResponse(lines, zkHostPort, "mntr");
-    for (String line : lines) {
-      String[] parts = line.split("\t");
-      if (parts.length >= 2) {
-        obj.put(parts[0], parts[1]);
-      } else {
-        String err =
-            String.format(
-                Locale.ENGLISH,
-                "Unexpected line in 'mntr' response from Zookeeper %s: %s",
-                zkHostPort,
-                line);
-        log.warn(err);
-        errors.add(err);
-      }
+
+    final String baseConnectString = "http://localhost:7137";
+    try (Http2SolrClient client = new Http2SolrClient.Builder()
+                                          .useHttp1_1(true)
+                                          .build();) {
+      final HttpClient httpClient = client.httpClient;
+      final ObjectMapper objectMapper = new ObjectMapper();
+
+      final ContentResponse ruokResponse = httpClient.GET(baseConnectString + "/commands/ruok");
+      final boolean ok = ruokResponse.getStatus() == 200;
+      obj.put("ok", ok);
+
+      // mntr
+      final ContentResponse mntrResponse = httpClient.GET(baseConnectString + "/commands/monitor");
+      final JsonNode mntrJson = objectMapper.readTree(mntrResponse.getContent());
+
+        for (Iterator<Map.Entry<String, JsonNode>> it = mntrJson.fields(); it.hasNext(); ) {
+            var entry = it.next();
+            String name = entry.getKey();
+            JsonNode value = entry.getValue();
+
+            obj.put(name, objectMapper.writeValueAsString(value));
+        }
+
+    } catch (Exception e) {
+        throw new RuntimeException(e);
     }
-    lines = getZkRawResponse(zkHostPort, "conf");
+
+//    List<String> lines = getZkRawResponse(zkHostPort, "mntr");
+//    validateZkRawResponse(lines, zkHostPort, "mntr");
+//    for (String line : lines) {
+//      String[] parts = line.split("\t");
+//      if (parts.length >= 2) {
+//        obj.put(parts[0], parts[1]);
+//      } else {
+//        String err =
+//            String.format(
+//                Locale.ENGLISH,
+//                "Unexpected line in 'mntr' response from Zookeeper %s: %s",
+//                zkHostPort,
+//                line);
+//        log.warn(err);
+//        errors.add(err);
+//      }
+//    }
+    List<String> lines = getZkRawResponse(zkHostPort, "conf");
     validateZkRawResponse(lines, zkHostPort, "conf");
     for (String line : lines) {
       String[] parts = line.split("=");

@@ -533,15 +533,15 @@ var zkStatusSubController = function($scope, ZookeeperStatus) {
     $scope.initZookeeper = function() {
       ZookeeperStatus.monitor({}, function(data) {
         $scope.zkState = data.zkStatus;
-        $scope.mainKeys = ["ok", "clientPort", "secureClientPort", "zk_server_state", "zk_version",
-          "zk_approximate_data_size", "zk_znode_count", "zk_num_alive_connections"];
+        $scope.mainKeys = ["ok", "clientPort", "secureClientPort", "server_state", "version",
+          "approximate_data_size", "znode_count", "num_alive_connections"];
         $scope.detailKeys = ["dataDir", "dataLogDir", 
-          "zk_avg_latency", "zk_max_file_descriptor_count", "zk_watch_count", 
-          "zk_packets_sent", "zk_packets_received",
+          "avg_latency", "max_file_descriptor_count", "watch_count",
+          "packets_sent", "packets_received",
           "tickTime", "maxClientCnxns", "minSessionTimeout", "maxSessionTimeout"];
         $scope.ensembleMainKeys = ["serverId", "electionPort", "quorumPort", "role"];
         $scope.ensembleDetailKeys = ["peerType", "electionAlg", "initLimit", "syncLimit",
-          "zk_followers", "zk_synced_followers", "zk_pending_syncs"];
+          "followers", "synced_followers", "pending_syncs"];
         $scope.notEmptyRow = function(key) {
           for (hostId in $scope.zkState.details) {
             if (key in $scope.zkState.details[hostId]) return true;

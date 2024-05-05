@@ -110,7 +110,7 @@ public class Http2SolrClient extends HttpSolrClientBase {
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
   private static final String AGENT = "Solr[" + Http2SolrClient.class.getName() + "] 2.0";
 
-  private final HttpClient httpClient;
+  public final HttpClient httpClient;
 
   private List<HttpListenerFactory> listenerFactory = new ArrayList<>();
   private final AsyncTracker asyncTracker = new AsyncTracker();
