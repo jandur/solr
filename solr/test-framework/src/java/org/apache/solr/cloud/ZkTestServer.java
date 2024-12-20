@@ -58,6 +58,8 @@ import org.apache.zookeeper.server.ServerCnxnFactory;
 import org.apache.zookeeper.server.ServerConfig;
 import org.apache.zookeeper.server.ZKDatabase;
 import org.apache.zookeeper.server.ZooKeeperServer;
+import org.apache.zookeeper.server.admin.AdminServer;
+import org.apache.zookeeper.server.admin.AdminServerFactory;
 import org.apache.zookeeper.server.persistence.FileTxnSnapLog;
 import org.apache.zookeeper.server.quorum.QuorumPeerConfig.ConfigException;
 import org.apache.zookeeper.test.ClientBase;
@@ -112,6 +114,7 @@ public class ZkTestServer {
 
     private volatile ServerCnxnFactory cnxnFactory;
     private volatile ZooKeeperServer zooKeeperServer;
+    private volatile AdminServer adminServer;
     private volatile LimitViolationAction violationReportAction = LimitViolationAction.REPORT;
     private volatile WatchLimiter limiter = new WatchLimiter(1, LimitViolationAction.IGNORE);
 
@@ -314,6 +317,9 @@ public class ZkTestServer {
         System.setProperty(
             "zookeeper.authProvider.1",
             "org.apache.zookeeper.server.auth.SASLAuthenticationProvider");
+
+        System.getProperty("")
+        System.setProperty("zookeeper.admin.enableServer", "true");
         // Note that this thread isn't going to be doing anything else,
         // so rather than spawning another thread, we will just call
         // run() in this thread.
@@ -329,6 +335,11 @@ public class ZkTestServer {
                 config.getClientPortListenBacklog(),
                 new TestZKDatabase(ftxn, limiter),
                 "");
+
+        adminServer = AdminServerFactory.createAdminServer();
+        adminServer.setZooKeeperServer(zooKeeperServer);
+        adminServer.start();
+
         cnxnFactory = new NIOServerCnxnFactory();
         cnxnFactory.configure(config.getClientPortAddress(), config.getMaxClientCnxns());
         cnxnFactory.startup(zooKeeperServer);
@@ -346,6 +357,8 @@ public class ZkTestServer {
       } catch (InterruptedException e) {
         // warn, but generally this is ok
         log.warn("Server interrupted", e);
+      } catch (AdminServer.AdminServerException e) {
+          throw new RuntimeException(e);
       }
     }
 

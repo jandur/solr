@@ -96,7 +96,7 @@ public class ZookeeperStatusHandlerTest extends SolrCloudTestCase {
     @SuppressWarnings({"unchecked"})
     Map<String, Object> details = (Map<String, Object>) detailsList.get(0);
     assertEquals(true, details.get("ok"));
-    assertTrue(Integer.parseInt((String) details.get("zk_znode_count")) > 50);
+    assertTrue(Integer.parseInt((String) details.get("znode_count")) > 50);
     solr.close();
   }
 
